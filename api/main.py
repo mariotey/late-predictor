@@ -8,6 +8,7 @@ This service provides:
 
 CLI usage (from repo root or src/):
     python -m api.main
+    uvicorn api.main:app --reload
     Invoke-RestMethod -Uri "http://127.0.0.1:8000/train" -Method POST
     Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" -Method POST `
         -ContentType "application/json" `
@@ -17,70 +18,100 @@ from fastapi import FastAPI, BackgroundTasks
 import joblib
 import os
 import pandas as pd
+import logging
 from pipelines.train import train
 from pipelines.predict import PredictRequest, run_ensemble_prediction
+from contextlib import asynccontextmanager
 
 from config import (
     TRAINED_MODELS_PATH,
     TOP_MODELS_PATH
 )
 
-app = FastAPI()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 trained_models, top_models = None, None
+
 
 def load_models():
     global trained_models, top_models
 
     if not os.path.exists(TRAINED_MODELS_PATH):
+        logger.info("⚠️ Model file missing. Run /train first.")
         return
 
     trained_models = joblib.load(TRAINED_MODELS_PATH)
     top_models = joblib.load(TOP_MODELS_PATH)
 
+    logger.info("✅ Models loaded successfully")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        logger.info("🚀 Loading models...")
+        load_models()
+    except Exception as e:
+        logger.error(f"Model loading failed: {e}")
+    yield
+    logger.info("🧹 Shutdown complete")
+
+
+app = FastAPI(lifespan=lifespan)
+
+
 def retrain_and_reload():
     train()
     load_models()
 
-@app.on_event("startup")
-def startup_event():
-    load_models()
 
 @app.get("/")
 def root():
     return {"message": "API running"}
 
+
 @app.post("/train")
 def train_model(background_tasks: BackgroundTasks):
     background_tasks.add_task(retrain_and_reload)
-    return {"status": "Model training started"}
+
+    return {
+        "status": "Model training started",
+        "note": "Model may take a few seconds/minutes to become available"
+    }
+
 
 @app.post("/predict")
 def predict(payload: PredictRequest):
-    target_col = "late_duration_min"
-
-    print("🔥 Received payload:", payload)
+    logger.info(f"🔥 Received payload: {payload}")
 
     if trained_models is None or top_models is None:
         return {
             "error": "Model not trained yet. Call /train first."
         }
 
-    print("🧠 Models loaded:", trained_models is not None)
-    print("🏆 Top models:", top_models)
+    logger.info(f"🧠 Models loaded: {trained_models is not None}")
+    logger.info(f"🏆 Top models: {top_models}")
 
-    X_df = pd.DataFrame([payload.dict()])
 
-    print("📊 Input DataFrame:\n", X_df)
+    X_df = pd.DataFrame([payload.model_dump()])
 
-    result_df = X_df.copy()
-    result_df[f"pred_{target_col}"] = run_ensemble_prediction(
-        X_df,
-        trained_models,
-        top_models
-    )
+    logger.info("📊 Input DataFrame: %s", X_df.to_dict(orient="records")[0])
 
-    result_df["models_used"] = ", ".join(top_models)
+    try:
+        pred = run_ensemble_prediction(
+            X_df,
+            trained_models,
+            top_models
+        )
+    except Exception as e:
+        logger.error(f"Prediction failed: {e}")
+        return {"error": "Prediction failed", "details": str(e)}
 
-    # Convert to JSON-friendly format
-    return result_df.to_dict(orient="records")[0]
+    return {
+        "prediction": float(pred),
+        "models_used": list(top_models) if top_models is not None else []
+    }
