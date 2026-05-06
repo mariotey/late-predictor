@@ -133,7 +133,6 @@ def predict(payload: PredictRequest):
     logger.info(f"🧠 Models loaded: {trained_models is not None}")
     logger.info(f"🏆 Top models: {top_models}")
 
-
     X_df = pd.DataFrame([payload.model_dump()])
 
     logger.info("📊 Input DataFrame: %s", X_df.to_dict(orient="records")[0])
