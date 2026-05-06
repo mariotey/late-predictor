@@ -7,37 +7,34 @@ This service provides:
 - Foundation for future inference endpoints
 
 ----------------------------------------------------------------------
+
 HOW TO RUN (CLI)
 
-From project root (LatePredictor/):
+From project root (LatePredictor/),
 
-    uvicorn api.main:app --reload
+uvicorn api.main:app --reload
 
 OR:
 
-    python -m api.main
+python -m api.main
 
 ----------------------------------------------------------------------
-HOW TO TEST INFERENCE (CLI / CURL)
 
-1. Start the API:
+HOW TO RUN (CLI / POWERSHELL)
 
-    uvicorn api.main:app --reload
+curl -X POST "http://127.0.0.1:8000/predict" ^
+-H "Content-Type: application/json" ^
+-d "{\"datetime_val\":\"2026-05-06T15:30:00Z\",\"init_lonlat\":[103.8,1.3],\"dest_lonlat\":[103.9,1.35],\"category\":\"dinner\"}"
 
-2. Send a prediction request:
+OR:
 
-    curl -X POST "http://127.0.0.1:8000/predict" ^
-    -H "Content-Type: application/json" ^
-    -d "{\"day_of_week\": 4, \"distance_km\": 10.5, \"category\": \"dinner/drinks\"}"
-
-OR using PowerShell:
-
-    Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" `
-        -Method POST `
-        -ContentType "application/json" `
-        -Body '{"day_of_week":4,"distance_km":10.5,"category":"dinner/drinks"}'
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body '{"datetime_val":"2026-05-06T15:30:00Z","init_lonlat":[103.8,1.3],"dest_lonlat":[103.9,1.35],"category":"dinner"}'
 
 ----------------------------------------------------------------------
+
 HOW TRAINING WORKS
 
 POST /train:
@@ -54,6 +51,7 @@ Note:
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 import joblib
 import os
+import numpy as np
 import pandas as pd
 import logging
 from pipelines.train import train
@@ -121,6 +119,20 @@ def train_model(background_tasks: BackgroundTasks):
     }
 
 
+def haversine(coord1, coord2):
+    lon1, lat1 = coord1
+    lon2, lat2 = coord2
+
+    R = 6371  # Earth radius in km
+
+    phi1, phi2 = np.radians(lat1), np.radians(lat2)
+    dphi = np.radians(lat2 - lat1)
+    dlambda = np.radians(lon2 - lon1)
+
+    a = np.sin(dphi/2)**2 + np.cos(phi1)*np.cos(phi2)*np.sin(dlambda/2)**2
+    return 2 * R * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+
+
 @app.post("/predict")
 def predict(payload: PredictRequest):
     logger.info(f"🔥 Received payload: {payload}")
@@ -133,7 +145,19 @@ def predict(payload: PredictRequest):
     logger.info(f"🧠 Models loaded: {trained_models is not None}")
     logger.info(f"🏆 Top models: {top_models}")
 
-    X_df = pd.DataFrame([payload.model_dump()])
+    # Derive features
+    day_of_week = payload.datetime_val.weekday()
+
+    distance_km = haversine(
+        payload.init_lonlat,
+        payload.dest_lonlat
+    )
+
+    X_df = pd.DataFrame([{
+        "day_of_week": day_of_week,
+        "distance_km": round(distance_km, 2),
+        "category": payload.category
+    }])
 
     logger.info("📊 Input DataFrame: %s", X_df.to_dict(orient="records")[0])
 
@@ -143,11 +167,16 @@ def predict(payload: PredictRequest):
             trained_models,
             top_models
         )
+
     except Exception as e:
         logger.error(f"Prediction failed: {e}")
         raise HTTPException(status_code=400, detail="Model not trained")
 
-    return {
-        "prediction": float(pred),
+    result = {
+        "est_min": float(pred),
         "models_used": list(top_models) if top_models is not None else []
     }
+
+    logger.info(f"Output:\n{result}")
+
+    return result

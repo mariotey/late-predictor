@@ -4,7 +4,7 @@ import logging
 from typing import Tuple
 from datetime import datetime
 from sklearn.preprocessing import LabelEncoder
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 logging.basicConfig(
@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class PredictRequest(BaseModel):
-    datetime: datetime
-    init_lonlat: Tuple[float, float]
-    dest_lonlat: Tuple[float, float]
-    category: str
+    datetime_val: datetime = Field(..., description="ISO 8601 timestamp of the event")
+    init_lonlat: Tuple[float, float] = Field(..., description="(longitude, latitude) of origin")
+    dest_lonlat: Tuple[float, float] = Field(..., description="(longitude, latitude) of destination")
+    category: str = Field(..., description="Activity category (e.g. dinner, drinks)")
 
 
 def Cat_LabelEncoding(df, cols):
