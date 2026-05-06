@@ -24,14 +24,14 @@ HOW TO RUN (CLI / POWERSHELL)
 
 curl -X POST "http://127.0.0.1:8000/predict" ^
 -H "Content-Type: application/json" ^
--d "{\"datetime_val\":\"2026-05-06T15:30:00Z\",\"init_lonlat\":[103.8,1.3],\"dest_lonlat\":[103.9,1.35],\"category\":\"dinner\"}"
+-d "{\"datetime_val\":\"2026-05-06T15:30:00Z\",\"init_lonlat\":[1.3, 103.8],\"dest_lonlat\":[1.35, 103.9],\"category\":\"dinner\"}"
 
 OR:
 
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" `
     -Method POST `
     -ContentType "application/json" `
-    -Body '{"datetime_val":"2026-05-06T15:30:00Z","init_lonlat":[103.8,1.3],"dest_lonlat":[103.9,1.35],"category":"dinner"}'
+    -Body '{"datetime_val":"2026-05-06T15:30:00Z","init_latlon":[1.3, 103.8],"dest_latlon":[1.35, 103.9],"category":"dinner"}'
 
 ----------------------------------------------------------------------
 
@@ -49,6 +49,7 @@ Note:
 
 """
 from fastapi import FastAPI, BackgroundTasks, HTTPException
+from haversine import haversine, Unit
 import joblib
 import os
 import numpy as np
@@ -119,20 +120,6 @@ def train_model(background_tasks: BackgroundTasks):
     }
 
 
-def haversine(coord1, coord2):
-    lon1, lat1 = coord1
-    lon2, lat2 = coord2
-
-    R = 6371  # Earth radius in km
-
-    phi1, phi2 = np.radians(lat1), np.radians(lat2)
-    dphi = np.radians(lat2 - lat1)
-    dlambda = np.radians(lon2 - lon1)
-
-    a = np.sin(dphi/2)**2 + np.cos(phi1)*np.cos(phi2)*np.sin(dlambda/2)**2
-    return 2 * R * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
-
-
 @app.post("/predict")
 def predict(payload: PredictRequest):
     logger.info(f"🔥 Received payload: {payload}")
@@ -149,8 +136,9 @@ def predict(payload: PredictRequest):
     day_of_week = payload.datetime_val.weekday()
 
     distance_km = haversine(
-        payload.init_lonlat,
-        payload.dest_lonlat
+        payload.init_latlon,
+        payload.dest_latlon,
+        unit=Unit.KILOMETERS
     )
 
     X_df = pd.DataFrame([{

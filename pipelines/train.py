@@ -2,7 +2,7 @@
 Model Training Pipeline (Ensemble + LOOCV Selection)
 
 This module:
-- Loads processed dataset from CLEAN_DATA_PATH
+- Loads dataset containing features
 - Applies feature encoding (Label + OneHot)
 - Trains multiple ML models (linear + tree-based)
 - Evaluates models using Leave-One-Out Cross Validation (LOOCV)
@@ -22,8 +22,8 @@ from sklearn.model_selection import LeaveOneOut
 from sklearn.metrics import mean_squared_error
 from sklearn.base import clone
 import joblib
+from pipelines import extract
 from config import (
-    CLEAN_DATA_PATH,
     MODELS_DIR,
     MODEL_ARTIFACT_DIR,
     TOP_MODELS_PATH,
@@ -70,19 +70,20 @@ def Cat_OneHotEncoding(df, cols):
 def train():
     logger.info("Starting training pipeline")
 
+    X_col = ["day_of_week", "distance_km", "category"]
+    y_col = "late_duration_min"
     category_cols = ["category", "day_of_week"]
-    target_col = "late_duration_min"
 
-    feature_df = pd.read_parquet(CLEAN_DATA_PATH)
+    feature_df = extract.extract_feature_store()
     logger.info(f"Loaded dataset: shape={feature_df.shape}")
 
     # Basic checks
-    missing_target = feature_df[target_col].isna().sum()
+    missing_target = feature_df[y_col].isna().sum()
     logger.info(f"Missing target values: {missing_target}")
 
     # Split features and target
-    y = feature_df[target_col]
-    X_raw = feature_df.drop(columns=[target_col])
+    y = feature_df[y_col]
+    X_raw = feature_df[X_col]
 
     logger.info(f"Feature columns: {X_raw.columns.tolist()}")
 

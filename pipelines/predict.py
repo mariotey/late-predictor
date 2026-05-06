@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 class PredictRequest(BaseModel):
     datetime_val: datetime = Field(..., description="ISO 8601 timestamp of the event")
-    init_lonlat: Tuple[float, float] = Field(..., description="(longitude, latitude) of origin")
-    dest_lonlat: Tuple[float, float] = Field(..., description="(longitude, latitude) of destination")
-    category: str = Field(..., description="Activity category (e.g. dinner, drinks)")
+    init_latlon: Tuple[float, float] = Field(..., description="(latitude, longitude) of origin")
+    dest_latlon: Tuple[float, float] = Field(..., description="(latitude, longitude) of destination")
+    category: str = Field(..., description="Activity category (e.g. dinner/drinks)")
 
 
 def Cat_LabelEncoding(df, cols):
