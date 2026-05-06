@@ -6,15 +6,52 @@ This service provides:
 - Model loading from persisted artifacts
 - Foundation for future inference endpoints
 
-CLI usage (from repo root or src/):
-    python -m api.main
+----------------------------------------------------------------------
+HOW TO RUN (CLI)
+
+From project root (LatePredictor/):
+
     uvicorn api.main:app --reload
-    Invoke-RestMethod -Uri "http://127.0.0.1:8000/train" -Method POST
-    Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" -Method POST `
+
+OR:
+
+    python -m api.main
+
+----------------------------------------------------------------------
+HOW TO TEST INFERENCE (CLI / CURL)
+
+1. Start the API:
+
+    uvicorn api.main:app --reload
+
+2. Send a prediction request:
+
+    curl -X POST "http://127.0.0.1:8000/predict" ^
+    -H "Content-Type: application/json" ^
+    -d "{\"day_of_week\": 4, \"distance_km\": 10.5, \"category\": \"dinner/drinks\"}"
+
+OR using PowerShell:
+
+    Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" `
+        -Method POST `
         -ContentType "application/json" `
-        -Body '{"day_of_week": <day_of_week>,"distance_km": <distance in km>,"category":<category of activity>}'
+        -Body '{"day_of_week":4,"distance_km":10.5,"category":"dinner/drinks"}'
+
+----------------------------------------------------------------------
+HOW TRAINING WORKS
+
+POST /train:
+    - Runs train() in background thread
+    - Saves model artifacts
+    - Reloads models into memory
+
+Note:
+    Training is asynchronous and non-blocking.
+
+----------------------------------------------------------------------
+
 """
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 import joblib
 import os
 import pandas as pd
@@ -109,7 +146,7 @@ def predict(payload: PredictRequest):
         )
     except Exception as e:
         logger.error(f"Prediction failed: {e}")
-        return {"error": "Prediction failed", "details": str(e)}
+        raise HTTPException(status_code=400, detail="Model not trained")
 
     return {
         "prediction": float(pred),
