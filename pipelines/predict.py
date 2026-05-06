@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import logging
+from typing import Tuple
+from datetime import datetime
 from sklearn.preprocessing import LabelEncoder
 from pydantic import BaseModel
 
@@ -13,8 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class PredictRequest(BaseModel):
-    day_of_week: int
-    distance_km: float
+    datetime: datetime
+    init_lonlat: Tuple[float, float]
+    dest_lonlat: Tuple[float, float]
     category: str
 
 
