@@ -14,125 +14,78 @@ CLI usage (from repo root or src/):
     python -m pipelines.train
 """
 import os
-import pandas as pd
 import numpy as np
 import logging
-from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import LeaveOneOut
 from sklearn.metrics import mean_squared_error
 from sklearn.base import clone
 import joblib
-from pipelines import extract
+from pipelines import preprocess
+from utils import cat_encoding
+from utils.logger import setup_logging
 from config import (
     MODELS_DIR,
     MODEL_ARTIFACT_DIR,
     TOP_MODELS_PATH,
     TRAINED_MODELS_PATH,
+    ONEHOT_COL_PATH,
     ENSEMBLE_NUM
 )
 from models.models import LINEAR_MODELS, TREE_MODELS
 
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+setup_logging()
 logger = logging.getLogger(__name__)
 
+def loocv_mse(model, X, y):
+    loo = LeaveOneOut()
+    errors = []
 
-def Cat_LabelEncoding(df, cols):
-    logger.info(f"[Encoding] LabelEncoding columns: {cols}")
+    n = len(X)
+    logger.info(f"[LOOCV with {model}] Starting | samples={n}")
 
-    modified_df = df.copy()
-    le = LabelEncoder()
+    for i, (train_idx, test_idx) in enumerate(loo.split(X)):
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
 
-    for col in cols:
-        before_nunique = modified_df[col].nunique()
-        modified_df[col] = le.fit_transform(modified_df[col])
+        model_clone = clone(model)
+        model_clone.fit(X_train, y_train)
 
-        logger.info(f"[LabelEncoding] {col}: unique values {before_nunique} → {modified_df[col].nunique()}")
+        pred = model_clone.predict(X_test)
+        errors.append(mean_squared_error(y_test, pred))
 
-    logger.info(f"[LabelEncoding] Final shape: {modified_df.shape}")
+        if i % 50 == 0:
+            logger.debug(f"\n[LOOCV with {model}] Progress {i}/{n}\n")
 
-    return modified_df
+    mse = np.mean(errors)
+    logger.info(f"[LOOCV with {model} COMPLETE] MSE={mse:.6f}\n")
 
-
-def Cat_OneHotEncoding(df, cols):
-    logger.info(f"[Encoding] OneHotEncoding columns: {cols}")
-
-    before_shape = df.shape
-    modified_df = pd.get_dummies(df, columns=cols)
-
-    logger.info(f"[OneHotEncoding] Shape {before_shape} → {modified_df.shape}")
-    return modified_df
+    return mse
 
 
 def train():
-    logger.info("Starting training pipeline")
-
-    X_col = ["day_of_week", "distance_km", "category"]
-    y_col = "late_duration_min"
-    category_cols = ["category", "day_of_week"]
-
-    feature_df = extract.extract_feature_store()
-    logger.info(f"Loaded dataset: shape={feature_df.shape}")
-
-    # Basic checks
-    missing_target = feature_df[y_col].isna().sum()
-    logger.info(f"Missing target values: {missing_target}")
-
-    # Split features and target
-    y = feature_df[y_col]
-    X_raw = feature_df[X_col]
-
-    logger.info(f"Feature columns: {X_raw.columns.tolist()}")
+    X_raw, y, category_cols = preprocess.train_preprocess()
 
     # Encoding
-    X_label = Cat_LabelEncoding(X_raw, category_cols)
-    X_onehot = Cat_OneHotEncoding(X_raw, category_cols)
+    X_label = cat_encoding.Cat_LabelEncoding(X_raw, category_cols)
+    X_onehot = cat_encoding.Cat_OneHotEncoding(X_raw, category_cols)
 
-    logger.info(f"Encoded datasets ready | Label: {X_label.shape}, OneHot: {X_onehot.shape}")
-
-    def loocv_mse(model, X, y):
-        loo = LeaveOneOut()
-        errors = []
-
-        n = len(X)
-        logger.info(f"[LOOCV] Starting | samples={n}")
-
-        for i, (train_idx, test_idx) in enumerate(loo.split(X)):
-            X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-            y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
-
-            model_clone = clone(model)
-            model_clone.fit(X_train, y_train)
-
-            pred = model_clone.predict(X_test)
-            errors.append(mean_squared_error(y_test, pred))
-
-            if i % 50 == 0:
-                logger.debug(f"[LOOCV] Progress {i}/{n}")
-
-        mse = np.mean(errors)
-        logger.info(f"[LOOCV COMPLETE] MSE={mse:.6f}")
-
-        return mse
+    logger.info(f"Encoded datasets ready | Label: {X_label.shape}, OneHot: {X_onehot.shape}\n")
 
     results = {}
 
     # Linear models (one-hot encoding)
-    for name, model in LINEAR_MODELS:
+    for model_name, model in LINEAR_MODELS:
         mse = loocv_mse(model, X_onehot, y)
-        results[name] = {
+        results[model_name] = {
             "mse": mse,
             "model": model,
             "type": "linear"
         }
 
     # Tree models (label encoding)
-    for name, model in TREE_MODELS:
+    for model_name, model in TREE_MODELS:
         mse = loocv_mse(model, X_label, y)
-        results[name] = {
+        results[model_name] = {
             "mse": mse,
             "model": model,
             "type": "tree"
@@ -141,51 +94,52 @@ def train():
     # Rank models
     sorted_results = sorted(results.items(), key=lambda x: x[1]["mse"])
 
-    logger.info("========== MODEL RANKING ==========")
-    for rank, (name, info) in enumerate(sorted_results):
-        logger.info(f"{rank+1}. {name} | MSE={info['mse']:.6f} | type={info['type']}")
+    logger.info("\n========== MODEL RANKING ==========")
+    for rank, (model_name, model_result) in enumerate(sorted_results):
+        logger.info(f"{rank+1}. {model_name} | MSE={model_result['mse']:.6f} | type={model_result['type']}")
 
     # Select top N models based on LOOCV results
     top_models = [name for name, _ in sorted_results[:ENSEMBLE_NUM]]
 
-    logger.info(f"Selected top models: {top_models}")
+    logger.info(f"\n\nSelected top models: {top_models}\n")
 
     # Retrain each selected model using ALL available data
     trained_models = {}
 
-    for name, info in results.items():
+    logger.info("Retraining top models...\n")
+
+    for model_name, model_result in results.items():
         # Create a fresh copy of the model
-        model = clone(info["model"])
+        model = clone(model_result["model"])
 
         # Choose correct feature representation
         # - Linear models → one-hot encoded features
         # - Tree models   → label encoded features
-        if info["type"] == "linear":
-            logger.info(f"Training {name} on OneHot features")
+        if model_result["type"] == "linear":
+            logger.info(f"Training {model_name} on OneHot features")
             model.fit(X_onehot, y)
         else:
-            logger.info(f"Training {name} on LabelEncoded features")
+            logger.info(f"Training {model_name} on LabelEncoded features")
             model.fit(X_label, y)
 
         # Store trained model + metadata
-        trained_models[name] = {
+        trained_models[model_name] = {
             "model": model,
-            "type": info["type"],
-            "mse": info["mse"]
+            "type": model_result["type"],
+            "mse": model_result["mse"]
         }
 
-        logger.info(f"Trained {name} complete")
-
+        logger.info(f"Training of {model_name} complete\n\n")
 
     os.makedirs(MODELS_DIR, exist_ok=True)
     os.makedirs(MODEL_ARTIFACT_DIR, exist_ok=True)
 
     joblib.dump(trained_models, TRAINED_MODELS_PATH)
     joblib.dump(top_models, TOP_MODELS_PATH)
+    joblib.dump(X_onehot.columns, ONEHOT_COL_PATH)
 
-    logger.info(f"Saved models → {TRAINED_MODELS_PATH}")
-    logger.info(f"Saved top models → {TOP_MODELS_PATH}")
-
+    logger.info(f"Saved models → {TRAINED_MODELS_PATH}\n")
+    logger.info(f"Saved top models → {TOP_MODELS_PATH}\n")
 
 if __name__ == "__main__":
     train()

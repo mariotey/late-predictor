@@ -50,28 +50,33 @@ Note:
 """
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from haversine import haversine, Unit
 import joblib
 import os
-import numpy as np
-import pandas as pd
 import logging
+import json
+from contextlib import asynccontextmanager
+from pipelines import load_data
+from pipelines.preprocess import predict_preprocess
 from pipelines.train import train
 from pipelines.predict import PredictRequest, run_ensemble_prediction
-from contextlib import asynccontextmanager
+from utils.logger import setup_logging
 
 from config import (
     TRAINED_MODELS_PATH,
-    TOP_MODELS_PATH
+    TOP_MODELS_PATH,
+    FEATURE_REGISTRY_PATH
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 trained_models, top_models = None, None
+
+def load_feature_registry():
+    feature_registry_dict = load_data.extract_latest_registry()
+
+    with open(FEATURE_REGISTRY_PATH, "w") as f:
+        json.dump(feature_registry_dict, f, indent=2)
 
 
 def load_models():
@@ -86,17 +91,18 @@ def load_models():
 
     logger.info("✅ Models loaded successfully")
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
+        logger.info("🚀 Loading feature registry...")
+        load_feature_registry()
+
         logger.info("🚀 Loading models...")
         load_models()
     except Exception as e:
         logger.error(f"Model loading failed: {e}")
     yield
     logger.info("🧹 Shutdown complete")
-
 
 app = FastAPI(lifespan=lifespan)
 
@@ -110,7 +116,6 @@ app.add_middleware(
 def retrain_and_reload():
     train()
     load_models()
-
 
 @app.get("/")
 def root():
@@ -139,26 +144,12 @@ def predict(payload: PredictRequest):
     logger.info(f"🧠 Models loaded: {trained_models is not None}")
     logger.info(f"🏆 Top models: {top_models}")
 
-    # Derive features
-    day_of_week = payload.datetime_val.weekday()
-
-    distance_km = haversine(
-        payload.init_latlon,
-        payload.dest_latlon,
-        unit=Unit.KILOMETERS
-    )
-
-    X_df = pd.DataFrame([{
-        "day_of_week": day_of_week,
-        "distance_km": round(distance_km, 2),
-        "category": payload.category
-    }])
-
-    logger.info("📊 Input DataFrame: %s", X_df.to_dict(orient="records")[0])
+    X_df, category_cols = predict_preprocess(payload)
 
     try:
         pred = run_ensemble_prediction(
             X_df,
+            category_cols,
             trained_models,
             top_models
         )
