@@ -1,14 +1,15 @@
 import logging
 import pandas as pd
 from haversine import haversine, Unit
-from . import load_data
+import load_from_supabase
+from services.feature_registry import load_feature_registry
 from utils.logger import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 def train_preprocess():
-    feature_registry_dict = load_data.extract_cached_registry()
+    feature_registry_dict = load_feature_registry()
     logger.info("Loaded feature registry\n")
 
     X_col = [
@@ -21,7 +22,7 @@ def train_preprocess():
 
     category_col = feature_registry_dict["feature_col"]["categorical"]
 
-    train_df = load_data.extract_feature_store()
+    train_df = load_from_supabase.get_feature_store()
     logger.info(f"Loaded dataset: shape={train_df.shape}\n")
 
     # Basic checks
@@ -58,7 +59,7 @@ def predict_preprocess(payload):
         "category": payload.category
     }])
 
-    feature_registry_dict = load_data.extract_cached_registry()
+    feature_registry_dict = load_feature_registry()
     logger.info("Loaded feature registry\n")
 
     X_col = [

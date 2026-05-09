@@ -48,63 +48,23 @@ Note:
 ----------------------------------------------------------------------
 
 """
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-import joblib
-import os
 import logging
-import json
-from contextlib import asynccontextmanager
-from pipelines import load_data
-from pipelines.preprocess import predict_preprocess
-from pipelines.train import train
-from pipelines.predict import PredictRequest, run_ensemble_prediction
-from utils.logger import setup_logging
 
-from config import (
-    TRAINED_MODELS_PATH,
-    TOP_MODELS_PATH,
-    FEATURE_REGISTRY_PATH
-)
+from utils.logger import setup_logging
+from pipelines.predict import PredictRequest
+
+from services.ml_service import MLService
+from services.feature_registry import refresh_feature_registry
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
-trained_models, top_models = None, None
+ml_service = MLService()
 
-def load_feature_registry():
-    feature_registry_dict = load_data.extract_latest_registry()
-
-    with open(FEATURE_REGISTRY_PATH, "w") as f:
-        json.dump(feature_registry_dict, f, indent=2)
-
-
-def load_models():
-    global trained_models, top_models
-
-    if not os.path.exists(TRAINED_MODELS_PATH):
-        logger.info("⚠️ Model file missing. Run /train first.")
-        return
-
-    trained_models = joblib.load(TRAINED_MODELS_PATH)
-    top_models = joblib.load(TOP_MODELS_PATH)
-
-    logger.info("✅ Models loaded successfully")
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    try:
-        logger.info("🚀 Loading feature registry...")
-        load_feature_registry()
-
-        logger.info("🚀 Loading models...")
-        load_models()
-    except Exception as e:
-        logger.error(f"Model loading failed: {e}")
-    yield
-    logger.info("🧹 Shutdown complete")
-
-app = FastAPI(lifespan=lifespan)
+# App
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -113,10 +73,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def retrain_and_reload():
-    train()
-    load_models()
+# Lifespan
+@app.on_event("startup")
+def startup():
+    logger.info("🚀 Starting API...")
 
+    refresh_feature_registry()
+    ml_service.load_models()
+
+# Routes
 @app.get("/")
 def root():
     return {"message": "API running"}
@@ -124,45 +89,17 @@ def root():
 
 @app.post("/train")
 def train_model(background_tasks: BackgroundTasks):
-    background_tasks.add_task(retrain_and_reload)
+    background_tasks.add_task(ml_service.retrain)
 
     return {
-        "status": "Model training started",
-        "note": "Model may take a few seconds/minutes to become available"
+        "status": "training started"
     }
 
 
 @app.post("/predict")
 def predict(payload: PredictRequest):
-    logger.info(f"🔥 Received payload: {payload}")
 
-    if trained_models is None or top_models is None:
-        return {
-            "error": "Model not trained yet. Call /train first."
-        }
+    if ml_service.trained_models is None or ml_service.top_models is None:
+        return {"error": "Model not trained yet"}
 
-    logger.info(f"🧠 Models loaded: {trained_models is not None}")
-    logger.info(f"🏆 Top models: {top_models}")
-
-    X_df, category_cols = predict_preprocess(payload)
-
-    try:
-        pred = run_ensemble_prediction(
-            X_df,
-            category_cols,
-            trained_models,
-            top_models
-        )
-
-    except Exception as e:
-        logger.error(f"Prediction failed: {e}")
-        raise HTTPException(status_code=400, detail="Model not trained")
-
-    result = {
-        "est_min": float(pred),
-        "models_used": list(top_models) if top_models is not None else []
-    }
-
-    logger.info(f"Output:\n{result}")
-
-    return result
+    return ml_service.predict(payload)
