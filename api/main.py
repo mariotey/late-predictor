@@ -53,8 +53,11 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/feedback" `
     -Body '{"datetime_val":"2026-05-06T15:30:00Z","init_latlon":[1.3, 103.8],"dest_latlon":[1.35, 103.9],"category":"dinner","est_min":19.00412858162575,"act_min":20}'
 
 """
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+
 import logging
 
 from utils.logger import setup_logging
@@ -64,14 +67,17 @@ from pipelines.data_feedback import DataFeedbackRequest, feedback_data
 from services.ml_service import MLService
 from services.feature_registry import refresh_feature_registry
 
+# Logging setup
 setup_logging()
 logger = logging.getLogger(__name__)
 
+# ML service singleton, holds trained models in memory
 ml_service = MLService()
 
-# App
+# FastAPI app
 app = FastAPI()
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -79,7 +85,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Lifespan
+# Startup hook
 @app.on_event("startup")
 def startup():
     logger.info("🚀 Starting API...")
@@ -87,12 +93,27 @@ def startup():
     refresh_feature_registry()
     ml_service.load_models()
 
-# Routes
+# Global validation error handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError
+):
+    logger.error(f"Validation error: {exc.errors()}")
+
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": exc.errors()
+        }
+    )
+
+# Health check endpoint
 @app.get("/")
 def root():
     return {"message": "API running"}
 
-
+# Train endpoint
 @app.post("/train")
 def train_model(background_tasks: BackgroundTasks):
     background_tasks.add_task(ml_service.retrain)
@@ -101,7 +122,7 @@ def train_model(background_tasks: BackgroundTasks):
         "status": "Training started"
     }
 
-
+# Prediction endpoint
 @app.post("/predict")
 def predict(payload: PredictRequest):
     logger.info(f"Received payload: {payload}")
@@ -111,6 +132,7 @@ def predict(payload: PredictRequest):
 
     return ml_service.predict(payload)
 
+# Feedback endpoint
 @app.post("/feedback")
 def feedback(payload: DataFeedbackRequest):
     logger.info(f"Received payload: {payload}")
