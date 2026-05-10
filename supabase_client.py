@@ -38,7 +38,7 @@ def get_latest_registry(table_name = FEATURE_REGISTRY_NAME):
     )
 
     data = res.data
-    return data[0]["config"] if data else None
+    return data[0] if data else None
 
 def load_into_supabase(df, table_name = FEEDBACK_STORE_NAME):
     records = df.to_dict("records")

@@ -111,7 +111,10 @@ def predict(payload: PredictRequest):
 
 @app.post("/feedback")
 def feedback(payload: DataFeedbackRequest):
-    feedback_data(payload)
+    feedback_data(
+        payload,
+        ml_service.top_models
+    )
 
     return {
         "status": "Feedback received"

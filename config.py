@@ -10,6 +10,9 @@ FEATURE_STORE_NAME: str = "feature_store"
 FEATURE_REGISTRY_NAME: str = "feature_registry"
 FEEDBACK_STORE_NAME: str = "feedback_store"
 
+# Data Table Column Names
+FEATURE_REGISTRY_CONFIG_COL: str = "config"
+
 # Model Artifact Paths
 MODELS_DIR: Path = REPO_ROOT / "models"
 MODEL_ARTIFACT_DIR: Path = MODELS_DIR / "artifacts"
