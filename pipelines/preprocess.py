@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 from haversine import haversine, Unit
-import load_from_supabase
+import supabase_client
 from services.feature_registry import load_feature_registry
 from utils.logger import setup_logging
 
@@ -22,7 +22,7 @@ def train_preprocess():
 
     category_col = feature_registry_dict["feature_col"]["categorical"]
 
-    train_df = load_from_supabase.get_feature_store()
+    train_df = supabase_client.get_feature_store()
     logger.info(f"Loaded dataset: shape={train_df.shape}\n")
 
     # Basic checks
@@ -69,9 +69,25 @@ def predict_preprocess(payload):
     ]
 
     category_col = feature_registry_dict["feature_col"]["categorical"]
+    target_col = feature_registry_dict["target_col"]
 
     X_df = X_df[X_col]
 
     logger.info("📊 Preprocessed X_df: %s", X_df.to_dict(orient="records")[0])
 
-    return X_df, category_col
+    return X_df, target_col, category_col
+
+def feedback_preprocess(payload):
+    if payload.act_min is None:
+        raise ValueError("act_min is invalid!")
+
+    if payload.est_min is None:
+        raise ValueError("est_min is invalid!")
+
+    X_df, y_col, _ = predict_preprocess(payload)
+
+    feedback_df = X_df.copy()
+    feedback_df[y_col] = payload.act_min
+    feedback_df[f"pred_{y_col}"] = payload.est_min
+
+    return feedback_df

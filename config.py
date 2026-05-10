@@ -8,6 +8,7 @@ REPO_ROOT: Path = Path(__file__).resolve().parent
 CLEAN_DATA_NAME: str = "clean_data"
 FEATURE_STORE_NAME: str = "feature_store"
 FEATURE_REGISTRY_NAME: str = "feature_registry"
+FEEDBACK_STORE_NAME: str = "feedback_store"
 
 # Model Artifact Paths
 MODELS_DIR: Path = REPO_ROOT / "models"

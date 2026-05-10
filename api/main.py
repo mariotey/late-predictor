@@ -47,6 +47,11 @@ Note:
 
 ----------------------------------------------------------------------
 
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/feedback" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body '{"datetime_val":"2026-05-06T15:30:00Z","init_latlon":[1.3, 103.8],"dest_latlon":[1.35, 103.9],"category":"dinner","est_min":19.00412858162575,"act_min":20}'
+
 """
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,6 +59,7 @@ import logging
 
 from utils.logger import setup_logging
 from pipelines.predict import PredictRequest
+from pipelines.data_feedback import DataFeedbackRequest, feedback_data
 
 from services.ml_service import MLService
 from services.feature_registry import refresh_feature_registry
@@ -92,14 +98,21 @@ def train_model(background_tasks: BackgroundTasks):
     background_tasks.add_task(ml_service.retrain)
 
     return {
-        "status": "training started"
+        "status": "Training started"
     }
 
 
 @app.post("/predict")
 def predict(payload: PredictRequest):
-
     if ml_service.trained_models is None or ml_service.top_models is None:
         return {"error": "Model not trained yet"}
 
     return ml_service.predict(payload)
+
+@app.post("/feedback")
+def feedback(payload: DataFeedbackRequest):
+    feedback_data(payload)
+
+    return {
+        "status": "Feedback received"
+    }

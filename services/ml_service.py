@@ -39,7 +39,7 @@ class MLService:
         self.load_models()
 
     def predict(self, payload):
-        X_df, category_cols = predict_preprocess(payload)
+        X_df, _, category_cols = predict_preprocess(payload)
 
         try:
             pred = run_ensemble_prediction(
@@ -53,10 +53,7 @@ class MLService:
             logger.error(f"Prediction failed: {e}")
             raise ValueError("Model not trained!")
 
-        result = {
-            "est_min": float(pred),
-            "models_used": list(self.top_models) if self.top_models is not None else []
-        }
+        result = {"est_min": float(pred)}
 
         logger.info(f"Output:\n{result}")
 

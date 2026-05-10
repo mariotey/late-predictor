@@ -1,6 +1,6 @@
 import json
 import logging
-import load_from_supabase
+import supabase_client
 from config import FEATURE_REGISTRY_PATH
 from utils.logger import setup_logging
 
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def refresh_feature_registry():
-    data = load_from_supabase.get_latest_registry()
+    data = supabase_client.get_latest_registry()
 
     with open(FEATURE_REGISTRY_PATH, "w") as f:
         json.dump(data, f, indent=2)
