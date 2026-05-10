@@ -104,6 +104,8 @@ def train_model(background_tasks: BackgroundTasks):
 
 @app.post("/predict")
 def predict(payload: PredictRequest):
+    logger.info(f"Received payload: {payload}")
+
     if ml_service.trained_models is None or ml_service.top_models is None:
         return {"error": "Model not trained yet"}
 
@@ -111,6 +113,8 @@ def predict(payload: PredictRequest):
 
 @app.post("/feedback")
 def feedback(payload: DataFeedbackRequest):
+    logger.info(f"Received payload: {payload}")
+
     feedback_data(
         payload,
         ml_service.top_models
