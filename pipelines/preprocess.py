@@ -35,9 +35,9 @@ def train_preprocess():
 
 def predict_preprocess(payload):
     # Derive features
-    datetime_val = payload.datetime_val
-    day_of_week = datetime_val.weekday()
-    hour = datetime_val.hour
+    meeting_datetime = payload.meeting_datetime
+    day_of_week = meeting_datetime.weekday()
+    hour = meeting_datetime.hour
 
     if hour >= 3 and hour < 12:
         time_of_day = "morning"
@@ -78,16 +78,28 @@ def predict_preprocess(payload):
     return X_df, target_col, category_col
 
 def feedback_preprocess(payload):
-    if payload.act_min is None:
-        raise ValueError("act_min is invalid!")
+    if payload.arrived_datetime is None:
+        raise ValueError("arrived_datetime is invalid!")
 
-    if payload.est_min is None:
+    if payload.pred_min is None:
         raise ValueError("est_min is invalid!")
 
-    X_df, y_col, _ = predict_preprocess(payload)
+    feedback_df = pd.DataFrame([{
+        "meeting_location": payload.meeting_location,
+        "date": payload.meeting_datetime.date(),
+        "meeting_time": payload.meeting_datetime,
+        "arrived_time": payload.arrived_datetime,
+        "meeting_lat": payload.meeting_latlon[0],
+        "meeting_lon": payload.meeting_latlon[1],
+        "category": payload.category,
+        "pred_min": payload.pred_min
+    }])
 
-    feedback_df = X_df.copy()
-    feedback_df[y_col] = payload.act_min
-    feedback_df[f"pred_{y_col}"] = payload.est_min
+    feedback_df["date"] = feedback_df["date"].astype(str)
+
+    for col in ["meeting_time", "arrived_time"]:
+        feedback_df[col] = feedback_df[col].apply(
+            lambda x: x.isoformat() if pd.notna(x) else None
+        )
 
     return feedback_df

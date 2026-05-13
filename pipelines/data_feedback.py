@@ -1,25 +1,30 @@
 import logging
 from typing import Tuple
+import pandas as pd
 from datetime import datetime
 from pydantic import BaseModel, Field
 import supabase_client
 from pipelines.preprocess import feedback_preprocess
 from supabase_client import load_into_supabase
+from utils.latlon_parser import parse_latlon
 from utils.logger import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 class DataFeedbackRequest(BaseModel):
-    datetime_val: datetime = Field(..., description="ISO 8601 timestamp of the event")
+    meeting_location: str = Field(..., description="Address of the meeting location")
+    meeting_datetime: datetime = Field(..., description="ISO 8601 timestamp of meeting")
     init_latlon: Tuple[float, float] = Field(..., description="(latitude, longitude) of origin")
-    dest_latlon: Tuple[float, float] = Field(..., description="(latitude, longitude) of destination")
+    meeting_latlon: Tuple[float, float] = Field(..., description="(latitude, longitude) of meetup")
     category: str = Field(..., description="Activity category (e.g. dinner/drinks)")
-    est_min: float = Field(..., description="Predicted duration in minutes")
-    act_min: float = Field(..., description="Actual observed duration in minutes")
+    pred_min: float = Field(..., description="Predicted duration in minutes")
+    arrived_datetime: datetime = Field(..., description="ISO 8601 timestamp of actual arrival")
 
 def feedback_data(payload, top_models):
     feedback_df = feedback_preprocess(payload)
+
+    logger.info(feedback_df, "\n")
 
     registry_dict = supabase_client.get_latest_registry()
 
