@@ -7,12 +7,13 @@ from supabase import create_client
 from utils.supbase_info import get_info
 from utils.logger import setup_logging
 from config import (
-    FEATURE_STORE_NAME,
+    FEATURES_NAME,
     FEATURE_REGISTRY_NAME,
-    FEEDBACK_STORE_NAME,
+    FEEDBACK_NAME,
     FEATURE_REGISTRY_PATH,
     TRAINED_MODELS_PATH,
     TOP_MODELS_PATH,
+    FEATURE_REGISTRY_COL_ID
 )
 
 setup_logging()
@@ -23,7 +24,7 @@ SUPABASE_URL, SUPABASE_KEY = get_info()
 # Create client once
 supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def get_feature_store(table_name = FEATURE_STORE_NAME):
+def get_feature_store(table_name = FEATURES_NAME):
     res = supabase_client.table(table_name).select("*").execute()
     return pd.DataFrame(res.data)
 
@@ -32,7 +33,7 @@ def get_latest_registry(table_name = FEATURE_REGISTRY_NAME):
         supabase_client
         .table(table_name)
         .select("*")
-        .order("id", desc=True)
+        .order(FEATURE_REGISTRY_COL_ID, desc=True)
         .limit(1)
         .execute()
     )
@@ -40,7 +41,7 @@ def get_latest_registry(table_name = FEATURE_REGISTRY_NAME):
     data = res.data
     return data[0] if data else None
 
-def load_into_supabase(df, table_name = FEEDBACK_STORE_NAME):
+def load_into_supabase(df, table_name = FEEDBACK_NAME):
     records = df.to_dict("records")
 
     # Clean NaNs, although should not be present at this stage

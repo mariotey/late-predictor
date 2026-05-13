@@ -5,12 +5,17 @@ from pathlib import Path
 REPO_ROOT: Path = Path(__file__).resolve().parent
 
 # Data Table Names
-CLEAN_DATA_NAME: str = "clean_data"
-FEATURE_STORE_NAME: str = "feature_store"
-FEATURE_REGISTRY_NAME: str = "feature_registry"
-FEEDBACK_STORE_NAME: str = "feedback_store"
+APPT_NAME: str = "Appointment"
+CATEGORY_NAME: str = "Category"
+FEATURES_NAME: str = "Features"
+FEATURE_REGISTRY_NAME: str = "FeatureRegistry"
+FEEDBACK_NAME: str = "Feedback"
 
 # Data Table Column Names
+APPT_ID_COL: str = "appt_id"
+CATEGORY_ID_COL: str = "category_id"
+FEATURES_COL_ID: str = "feature_id"
+FEATURE_REGISTRY_COL_ID: str = "f_reg_id"
 FEATURE_REGISTRY_CONFIG_COL: str = "config"
 
 # Model Artifact Paths

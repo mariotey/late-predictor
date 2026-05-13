@@ -10,9 +10,9 @@ This service provides:
 
 HOW TO RUN (CLI)
 
-From project root (LatePredictor/),
+From project root (latepredictor/ml),
 
-uvicorn api.main:app --reload
+python -m uvicorn api.main:app --reload
 
 OR:
 
