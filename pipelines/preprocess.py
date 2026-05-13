@@ -4,6 +4,7 @@ from haversine import haversine, Unit
 import supabase_client
 from services.feature_registry import load_feature_registry
 from utils.logger import setup_logging
+from config import CATEGORY_ID_COL
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ def feedback_preprocess(payload):
         "arrived_time": payload.arrived_datetime,
         "meeting_lat": payload.meeting_latlon[0],
         "meeting_lon": payload.meeting_latlon[1],
-        "category": payload.category,
+        CATEGORY_ID_COL: payload.category_id,
         "pred_min": payload.pred_min
     }])
 

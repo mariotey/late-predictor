@@ -13,7 +13,7 @@ from config import (
     FEATURE_REGISTRY_PATH,
     TRAINED_MODELS_PATH,
     TOP_MODELS_PATH,
-    FEATURE_REGISTRY_COL_ID
+    FEATURE_REGISTRY_ID_COL
 )
 
 setup_logging()
@@ -33,7 +33,7 @@ def get_latest_registry(table_name = FEATURE_REGISTRY_NAME):
         supabase_client
         .table(table_name)
         .select("*")
-        .order(FEATURE_REGISTRY_COL_ID, desc=True)
+        .order(FEATURE_REGISTRY_ID_COL, desc=True)
         .limit(1)
         .execute()
     )

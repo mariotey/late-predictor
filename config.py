@@ -14,8 +14,8 @@ FEEDBACK_NAME: str = "Feedback"
 # Data Table Column Names
 APPT_ID_COL: str = "appt_id"
 CATEGORY_ID_COL: str = "category_id"
-FEATURES_COL_ID: str = "feature_id"
-FEATURE_REGISTRY_COL_ID: str = "f_reg_id"
+FEATURES_ID_COL: str = "feature_id"
+FEATURE_REGISTRY_ID_COL: str = "f_reg_id"
 FEATURE_REGISTRY_CONFIG_COL: str = "config"
 
 # Model Artifact Paths
