@@ -35,7 +35,7 @@ def train_preprocess():
 
 def predict_preprocess(payload):
     # Derive features
-    meeting_datetime = payload.meeting_datetime
+    meeting_datetime = payload.datetime_val
     day_of_week = meeting_datetime.weekday()
     hour = meeting_datetime.hour
 
