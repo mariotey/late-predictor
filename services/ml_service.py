@@ -53,7 +53,7 @@ class MLService:
             logger.error(f"Prediction failed: {e}")
             raise ValueError("Model not trained!")
 
-        result = {"est_min": float(pred)}
+        result = {"pred_min": float(pred)}
 
         logger.info(f"Output:\n{result}")
 
