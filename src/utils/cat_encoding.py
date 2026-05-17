@@ -1,7 +1,7 @@
 import logging
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
-from utils.logger import setup_logging
+from .logger import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)

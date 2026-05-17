@@ -12,11 +12,11 @@ HOW TO RUN (CLI)
 
 From project root (latepredictor/ml),
 
-python -m uvicorn api.main:app --reload
+python -m uvicorn fastapi_app.main:app --reload
 
 OR:
 
-python -m api.main
+python -m fastapi_app.main
 
 ----------------------------------------------------------------------
 
@@ -61,11 +61,11 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from utils.logger import setup_logging
-from pipelines.predict import PredictRequest
-from pipelines.data_feedback import DataFeedbackRequest, feedback_data
+from .pipelines.predict import PredictRequest
+from .pipelines.data_feedback import DataFeedbackRequest, feedback_data
 
-from services.ml_service import MLService
-from services.feature_registry import refresh_feature_registry
+from .services.ml_service import MLService
+from .services.feature_registry import refresh_feature_registry
 
 # Logging setup
 setup_logging()

@@ -3,26 +3,37 @@ import json
 import os
 import joblib
 import logging
+from dotenv import load_dotenv
 from supabase import create_client
-from utils.supbase_info import get_info
-from utils.logger import setup_logging
+from .logger import setup_logging
 from config import (
     FEATURES_NAME,
     FEATURE_REGISTRY_NAME,
     FEEDBACK_NAME,
-    FEATURE_REGISTRY_PATH,
-    TRAINED_MODELS_PATH,
-    TOP_MODELS_PATH,
     FEATURE_REGISTRY_ID_COL
 )
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
+def get_info():
+    # Load environment variables
+    load_dotenv()
+
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_SECRET_KEY")
+
+    # Check if the values obtained are valid
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY")
+
+    return SUPABASE_URL, SUPABASE_KEY
+
 SUPABASE_URL, SUPABASE_KEY = get_info()
 
 # Create client once
 supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 
 def get_feature_store(table_name = FEATURES_NAME):
     res = supabase_client.table(table_name).select("*").execute()

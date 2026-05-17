@@ -1,9 +1,9 @@
 import os
 import joblib
 import logging
-from pipelines.train import train
-from pipelines.preprocess import predict_preprocess
-from pipelines.predict import run_ensemble_prediction
+from ..pipelines.train import train
+from ..pipelines.preprocess import predict_preprocess
+from ..pipelines.predict import run_ensemble_prediction
 from utils.logger import setup_logging
 from config import (
     TRAINED_MODELS_PATH,

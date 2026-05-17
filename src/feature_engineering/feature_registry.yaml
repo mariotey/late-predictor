@@ -1,0 +1,9 @@
+target_col: "late_duration_min"
+
+feature_col:
+  categorical:
+    - "day_of_week"
+    - "category"
+    - "time_of_day"
+  numerical:
+    - "distance_km"

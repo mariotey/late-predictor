@@ -1,8 +1,8 @@
 import logging
 import pandas as pd
 from haversine import haversine, Unit
-import supabase_client
-from services.feature_registry import load_feature_registry
+from ..services.feature_registry import load_feature_registry
+import utils.supabase_client as supabase_client
 from utils.logger import setup_logging
 from config import CATEGORY_ID_COL
 

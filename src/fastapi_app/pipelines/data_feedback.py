@@ -3,10 +3,8 @@ from typing import Tuple
 import pandas as pd
 from datetime import datetime
 from pydantic import BaseModel, Field
-import supabase_client
-from pipelines.preprocess import feedback_preprocess
-from supabase_client import load_into_supabase
-from utils.latlon_parser import parse_latlon
+from .preprocess import feedback_preprocess
+from utils.supabase_client import load_into_supabase, get_latest_registry
 from utils.logger import setup_logging
 from config import FEATURE_REGISTRY_ID_COL
 
@@ -27,7 +25,7 @@ def feedback_data(payload, top_models):
 
     logger.info(feedback_df, "\n")
 
-    registry_dict = supabase_client.get_latest_registry()
+    registry_dict = get_latest_registry()
 
     feedback_df["models_used"] = ", ".join(map(str, top_models))
     feedback_df[FEATURE_REGISTRY_ID_COL] = registry_dict[FEATURE_REGISTRY_ID_COL]

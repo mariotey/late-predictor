@@ -20,18 +20,18 @@ from sklearn.model_selection import LeaveOneOut
 from sklearn.metrics import mean_squared_error
 from sklearn.base import clone
 import joblib
-from pipelines import preprocess
+from . import preprocess
 from utils import cat_encoding
 from utils.logger import setup_logging
 from config import (
-    MODELS_DIR,
-    MODEL_ARTIFACT_DIR,
+    FASTAPI_MODELS_DIR,
+    FASTAPI_MODEL_ARTIFACT_DIR,
     TOP_MODELS_PATH,
     TRAINED_MODELS_PATH,
     ONEHOT_COL_PATH,
     ENSEMBLE_NUM
 )
-from models.models import LINEAR_MODELS, TREE_MODELS
+from ..models.models import LINEAR_MODELS, TREE_MODELS
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -131,8 +131,8 @@ def train():
 
         logger.info(f"Training of {model_name} complete\n\n")
 
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    os.makedirs(MODEL_ARTIFACT_DIR, exist_ok=True)
+    os.makedirs(FASTAPI_MODELS_DIR, exist_ok=True)
+    os.makedirs(FASTAPI_MODEL_ARTIFACT_DIR, exist_ok=True)
 
     joblib.dump(trained_models, TRAINED_MODELS_PATH)
     joblib.dump(top_models, TOP_MODELS_PATH)
