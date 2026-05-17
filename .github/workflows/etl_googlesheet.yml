@@ -20,7 +20,8 @@ jobs:
         run: uv sync --frozen
 
       - name: Run ETL
-        run: uv run python -m src.etl_googlesheet.main
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          PYTHONPATH: src
+        run: uv run python -m etl_googlesheet.main
