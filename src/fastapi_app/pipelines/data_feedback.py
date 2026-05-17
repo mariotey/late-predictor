@@ -23,7 +23,7 @@ class DataFeedbackRequest(BaseModel):
 def feedback_data(payload, top_models):
     feedback_df = feedback_preprocess(payload)
 
-    logger.info(feedback_df, "\n")
+    logger.info(f"{feedback_df}\n")
 
     registry_dict = get_latest_registry()
 
